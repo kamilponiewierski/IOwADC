@@ -1,6 +1,9 @@
 import time
 import random
-from easyAI import TwoPlayerGame, AI_Player, Negamax, SSS
+from easyAI import TwoPlayerGame, AI_Player, Negamax # Import easyAI 
+from negamax_no_pruning import NegamaxNoPruning  # Import AI
+from expectiminimax import ExpectiMinimax # Import algorytmux Expectiminimax
+
 
 
 class AIWithTimer(AI_Player):
@@ -79,12 +82,25 @@ if __name__ == "__main__":
     num_games = int(input("Podaj liczbę gier do rozegrania: "))
     depth1 = int(input("Podaj maksymalną głębokość dla Gracza 1: "))
     depth2 = int(input("Podaj maksymalną głębokość dla Gracza 2: "))
-    algo1_type = input("Wybierz algorytm dla Gracza 1 (Negamax/SSS): ").strip().lower()
-    algo2_type = input("Wybierz algorytm dla Gracza 2 (Negamax/SSS): ").strip().lower()
+    algo1_type = input("Wybierz algorytm dla Gracza 1 (Negamax/BaseNegamax): ").strip().lower()
+    algo2_type = input("Wybierz algorytm dla Gracza 2 (Negamax/BaseNegamax): ").strip().lower()
     probabilistic = input("Czy gra ma być probabilistyczna? (tak/nie): ").strip().lower() == "tak"
-
-    algo1 = Negamax if algo1_type == "negamax" else SSS
-    algo2 = Negamax if algo2_type == "negamax" else SSS
+    
+    match algo1_type:
+        case "negamax":
+            algo1 = Negamax
+        case "basenegamax":
+            algo1 = NegamaxNoPruning
+        case _:
+            raise Exception("Niepoprawny algorytm")
+    
+    match algo2_type:
+        case "negamax":
+            algo2 = Negamax
+        case "basenegamax":
+            algo2 = NegamaxNoPruning
+        case _:
+            raise Exception("Niepoprawny algorytm")
 
     initial_stacks = create_stacks()
     print(f"Początkowy układ stosów: {initial_stacks}")
