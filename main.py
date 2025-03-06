@@ -82,8 +82,8 @@ if __name__ == "__main__":
     num_games = int(input("Podaj liczbę gier do rozegrania: "))
     depth1 = int(input("Podaj maksymalną głębokość dla Gracza 1: "))
     depth2 = int(input("Podaj maksymalną głębokość dla Gracza 2: "))
-    algo1_type = input("Wybierz algorytm dla Gracza 1 (Negamax/BaseNegamax): ").strip().lower()
-    algo2_type = input("Wybierz algorytm dla Gracza 2 (Negamax/BaseNegamax): ").strip().lower()
+    algo1_type = input("Wybierz algorytm dla Gracza 1 (Negamax/BaseNegamax/ExpectiMiniMax): ").strip().lower()
+    algo2_type = input("Wybierz algorytm dla Gracza 2 (Negamax/BaseNegamax/ExpectiMiniMax): ").strip().lower()
     probabilistic = input("Czy gra ma być probabilistyczna? (tak/nie): ").strip().lower() == "tak"
     
     match algo1_type:
@@ -91,6 +91,8 @@ if __name__ == "__main__":
             algo1 = Negamax
         case "basenegamax":
             algo1 = NegamaxNoPruning
+        case "expectiminimax":
+            algo1 = ExpectiMinimax
         case _:
             raise Exception("Niepoprawny algorytm")
     
@@ -99,6 +101,8 @@ if __name__ == "__main__":
             algo2 = Negamax
         case "basenegamax":
             algo2 = NegamaxNoPruning
+        case "expectiminimax":
+            algo2 = ExpectiMinimax
         case _:
             raise Exception("Niepoprawny algorytm")
 
