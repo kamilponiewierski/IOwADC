@@ -120,8 +120,8 @@ if __name__ == "__main__":
 
         for game_number in range(num_games):
             game = NimGame([player1, player2], 1 + game_number % 2, probabilistic, initial_stacks.copy())
-            game.play()
-            print(f"Zwycięzcą jest Gracz {game.current_player}!")
+            game.play(verbose=False)
+            # print(f"Zwycięzcą jest Gracz {game.current_player}!")
             if game.current_player == 1:
                 wins_player1 += 1
             else:
