@@ -5,7 +5,7 @@ from stripsProblem import Planning_problem, STRIPS_domain, Strips
 # minerals = {"mineral_field_a"}
 sectors = {"sector_a", "sector_b"}
 boolean = {True, False}
-building = {"", "Barracks"}
+building = {"", "Barracks", "Depot"}
 mineralField = {"", "Minerals"}
 
 
@@ -16,18 +16,24 @@ collect_minerals_actions = list(
             {"HasMinerals": False, f"Minerals_{x}": "Minerals"},
             {"HasMinerals": True, f"Minerals_{x}": ""},
         ),
-        range(1, 3)
+        range(1, 3),
     )
 )
 
 starcraft_domain = STRIPS_domain(
     feature_domain_dict={
-        "Minerals_1": building,
-        "Minerals_2": building,
+        "Minerals_1": mineralField,
+        "Minerals_2": mineralField,
+        "Sector_1": building,
         "HasMinerals": boolean,
     },
     actions={
-        *collect_minerals_actions
+        *collect_minerals_actions,
+        Strips(
+            "Build_Barracks_1",
+            {"HasMinerals": True, "Sector_1": ""},
+            {"HasMinerals": False, "Sector_1": "Barracks"},
+        ),
     },
 )
 
@@ -37,8 +43,9 @@ collect_materials_problem = Planning_problem(
         "HasMinerals": False,
         "Minerals_1": "Minerals",
         "Minerals_2": "Minerals",
+        "Sector_1": ""
     },
-    goal={"HasMinerals": True},
+    goal={"Sector_1": "Barracks"},
 )
 
 s1 = SearcherMPP(Forward_STRIPS(collect_materials_problem))  # A*
