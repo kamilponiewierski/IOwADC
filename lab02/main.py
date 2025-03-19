@@ -43,7 +43,8 @@ collect_materials_problem = Planning_problem(
         "HasMinerals": False,
         "Minerals_1": "Minerals",
         "Minerals_2": "Minerals",
-        "Sector_1": ""
+        "Sector_1": "",
+        "Sector_2": "",
     },
     goal={"Sector_1": "Barracks"},
 )
