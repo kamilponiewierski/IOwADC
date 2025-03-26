@@ -44,6 +44,14 @@ for l_1 in locations:
                 )
             )
 
+build_depot_actions = list(map(
+    lambda x: Strips(
+        f"Build_Depot_{x}",
+        {"SCV_location": f"Sector_{x}", f"Sector_{x}": "", "HasMinerals": True},
+        {f"Sector_{x}": "Depot", "HasMinerals": False},
+    ),
+    range(1, len(sectors) + 1),
+))
 
 starcraft_domain = STRIPS_domain(
     feature_domain_dict={
@@ -57,9 +65,15 @@ starcraft_domain = STRIPS_domain(
     actions={
         *collect_minerals_actions,
         *move_scv_actions,
+        *build_depot_actions,
         Strips(
             "Build_Barracks_1",
-            {"HasMinerals": True, "Sector_1": "", "SCV_location": "Sector_1"},
+            {
+                "HasMinerals": True,
+                "Sector_1": "",
+                "SCV_location": "Sector_1",
+                "Sector_2": "Depot",
+            },
             {"HasMinerals": False, "Sector_1": "Barracks"},
         ),
     },
