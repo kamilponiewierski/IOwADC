@@ -3,7 +3,7 @@ from stripsForwardPlanner import Forward_STRIPS
 from stripsProblem import Planning_problem, STRIPS_domain, Strips
 
 # minerals = {"mineral_field_a"}
-sectors = {"Sector_1", "Sector_2"}
+sectors = set(map(lambda x: f"Sector_{x}", range(1, 3)))
 boolean = {True, False}
 building = {"", "Barracks", "Depot"}
 mineralField = {"", "Minerals"}
