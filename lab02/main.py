@@ -3,7 +3,7 @@ from stripsForwardPlanner import Forward_STRIPS
 from stripsProblem import Planning_problem, STRIPS_domain, Strips
 
 # minerals = {"mineral_field_a"}
-sectors = {"sector_a", "sector_b"}
+sectors = {"Sector_1", "Sector_2"}
 boolean = {True, False}
 building = {"", "Barracks", "Depot"}
 mineralField = {"", "Minerals"}
@@ -13,25 +13,53 @@ collect_minerals_actions = list(
     map(
         lambda x: Strips(
             f"collect_minerals_{x}",
-            {"HasMinerals": False, f"Minerals_{x}": "Minerals"},
-            {"HasMinerals": True, f"Minerals_{x}": ""},
+            {
+                "HasMinerals": False,
+                f"Minerals_{x}": "Minerals",
+                "SCV_location": f"Minerals_{x}",
+            },
+            {
+                "HasMinerals": True,
+                f"Minerals_{x}": "",
+            },
         ),
         range(1, 3),
     )
 )
+
+move_scv_actions = []
+
+
+mineral_fields = set(map(lambda x: f"Minerals_{x}", range(1, 3)))
+locations = mineral_fields | sectors
+
+for l_1 in locations:
+    for l_2 in locations:
+        if l_1 != l_2:
+            move_scv_actions.append(
+                Strips(
+                    f"move_scv_from_{l_1}_to_{l_2}",
+                    {"SCV_location": l_1},
+                    {"SCV_location": l_2},
+                )
+            )
+
 
 starcraft_domain = STRIPS_domain(
     feature_domain_dict={
         "Minerals_1": mineralField,
         "Minerals_2": mineralField,
         "Sector_1": building,
+        "Sector_2": building,
         "HasMinerals": boolean,
+        "SCV_location": locations,
     },
     actions={
         *collect_minerals_actions,
+        *move_scv_actions,
         Strips(
             "Build_Barracks_1",
-            {"HasMinerals": True, "Sector_1": ""},
+            {"HasMinerals": True, "Sector_1": "", "SCV_location": "Sector_1"},
             {"HasMinerals": False, "Sector_1": "Barracks"},
         ),
     },
@@ -45,6 +73,7 @@ collect_materials_problem = Planning_problem(
         "Minerals_2": "Minerals",
         "Sector_1": "",
         "Sector_2": "",
+        "SCV_location": "Sector_1",
     },
     goal={"Sector_1": "Barracks"},
 )
