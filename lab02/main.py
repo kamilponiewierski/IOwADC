@@ -13,22 +13,25 @@ class Building(Enum):
     EMPTY = ""
     BARRACKS = "Barracks"
     DEPOT = "Depot"
+    FACTORY = "Factory"
 
 
 class Unit(Enum):
     NONE = ""
     MARINE = "Marine"
     WRAITH = "Wraith"
-    TANK = "Tank"
+    SIEGE_TANK = "Siege Tank"
 
 
 # minerals = {"mineral_field_a"}
-sectors = set(map(lambda x: f"Sector_{x}", range(1, 5)))
+sectors = set(map(lambda x: f"Sector_{x}", range(1, 4)))
+mineral_fields = set(map(lambda x: f"Minerals_{x}", range(1, 6)))
+unit_slots = set(map(lambda x: f"Unit_{x}", range(1, 4)))
+
 boolean = {True, False}
 building = set(e.value for e in Building)
 units = set(e.value for e in Unit)
 mineralField = {"", "Minerals"}
-mineral_fields = set(map(lambda x: f"Minerals_{x}", range(1, 8)))
 
 
 collect_minerals_actions = list(
@@ -96,37 +99,65 @@ for i in range(1, len(sectors) + 1):
                 )
             )
 
+build_factory_actions = []
+for i in range(1, len(sectors) + 1):
+    for j in range(1, len(sectors) + 1):
+        if i != j:
+            build_factory_actions.append(
+                Strips(
+                    f"Build_Factory_{i}_With_Barracks_At_{j}",
+                    {
+                        "HasMinerals": True,
+                        f"Sector_{i}": Building.EMPTY,
+                        "SCV_location": f"Sector_{i}",
+                        f"Sector_{j}": Building.BARRACKS,
+                    },
+                    {"HasMinerals": False, f"Sector_{i}": Building.FACTORY},
+                )
+            )
+train_marine_actions = []
+for i in range(1, len(sectors) + 1):
+    for j in range(1, len(unit_slots) + 1):
+        train_marine_actions.append(
+            Strips(
+                f"Build_Marine_{j}_from_Barracks_{i}",
+                {
+                    f"Sector_{i}": Building.BARRACKS,
+                    "HasMinerals": True,
+                    f"Unit_{j}": Unit.NONE,
+                },
+                {
+                    f"Unit_{j}": Unit.MARINE,
+                    "HasMinerals": False,
+                },
+            )
+        )
 
-train_marine_actions = list(
-    map(
-        lambda x: Strips(
-            f"train_marine_{x}",
-            {
-                f"Sector_{x}": Building.BARRACKS,
-                "HasMinerals": True,
-                f"Unit_{x}": "",
-            },
-            {
-                f"Unit_{x}": Unit.MARINE,
-                "HasMinerals": False,
-            },
-        ),
-        range(1, len(sectors) + 1),
-    )
-)
+train_siege_tank_actions = []
+for i in range(1, len(sectors) + 1):
+    for j in range(1, len(unit_slots) + 1):
+        train_marine_actions.append(
+            Strips(
+                f"Build_Siege_Tank_{j}_from_Factory_{i}",
+                {
+                    f"Sector_{i}": Building.FACTORY,
+                    "HasMinerals": True,
+                    f"Unit_{j}": "",
+                },
+                {
+                    f"Unit_{j}": Unit.SIEGE_TANK,
+                    "HasMinerals": False,
+                },
+            )
+        )
 
 starcraft_domain = STRIPS_domain(
     feature_domain_dict={
-        "Minerals_1": mineralField,
-        "Minerals_2": mineralField,
-        "Minerals_3": mineralField,
-        "Sector_1": building,
-        "Sector_2": building,
+        **{f"Minerals_{x}": mineralField for x in range(1, len(mineral_fields) + 1)},
+        **{f"Sector_{x}": building for x in range(1, len(sectors) + 1)},
         "HasMinerals": boolean,
         "SCV_location": locations,
-        "Unit_1": units,
-        "Unit_2": units,
-        "Unit_3": units,
+        **{f"Unit_{x}": units for x in range(1, len(unit_slots) + 1)},
     },
     actions={
         *collect_minerals_actions,
@@ -147,13 +178,11 @@ starcraft_domain = STRIPS_domain(
     },
 )
 
-initial_units_state = {
-    "Unit_1": Unit.NONE,
-    "Unit_2": Unit.NONE,
-    "Unit_3": Unit.NONE,
-}
+initial_units_state = {f"Unit_{x}": Unit.NONE for x in range(1, len(unit_slots) + 1)}
 
-initial_sector_state = {f"Sector_{x}": Building.EMPTY for x in range(1, len(sectors) + 1)}
+initial_sector_state = {
+    f"Sector_{x}": Building.EMPTY for x in range(1, len(sectors) + 1)
+}
 
 initial_minerals_state = {
     "HasMinerals": False,
@@ -192,18 +221,36 @@ build_depot_problem = Planning_problem(
 train_marine_problem = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state=initial_state,
-    goal={"Unit_1": Unit.MARINE, "Unit_2": Unit.MARINE, "Sector_3": Building.BARRACKS},
+    goal={
+        "Unit_1": Unit.MARINE,
+        "Unit_2": Unit.MARINE,
+        "Sector_3": Building.BARRACKS,
+    },
 )
 
-problem = build_depot_problem
+problem_1 = Planning_problem(
+    prob_domain=starcraft_domain,
+    initial_state=initial_state,
+    goal={
+        "Sector_1": Building.BARRACKS,
+        "Sector_3": Building.BARRACKS,
+        "Sector_2": Building.DEPOT,
+        "Sector_4": Building.DEPOT,
+        "Unit_1": Unit.MARINE,
+        "Unit_2": Unit.MARINE,
+        "SCV_location": "Sector_1",
+    },
+)
+
+problem = train_marine_problem
 
 start = time.time()
 # A*
-s1 = SearcherMPP(Forward_STRIPS(problem))
-s1.search()
+# s1 = SearcherMPP(Forward_STRIPS(problem))
+# s1.search()
 
-end = time.time()
-print(f"Elapsed time: {end - start}")
+# end = time.time()
+# print(f"Elapsed time: {end - start}")
 
 
 start = time.time()
