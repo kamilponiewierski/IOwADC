@@ -25,7 +25,7 @@ class Unit(Enum):
 
 # minerals = {"mineral_field_a"}
 sectors = set(map(lambda x: f"Sector_{x}", range(1, 4)))
-mineral_fields = set(map(lambda x: f"Minerals_{x}", range(1, 8)))
+mineral_fields = set(map(lambda x: f"Minerals_{x}", range(1, 10)))
 unit_slots = set(map(lambda x: f"Unit_{x}", range(1, 4)))
 
 boolean = {True, False}
@@ -234,7 +234,11 @@ train_siege_tank_problem = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state=initial_state,
     goal={
+        "Sector_1": Building.DEPOT,
+        "Sector_2": Building.BARRACKS,
+        "Sector_3": Building.FACTORY,
         "Unit_1": Unit.SIEGE_TANK,
+        "HasMinerals": True
     },
 )
 
@@ -243,17 +247,11 @@ problem_1 = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state=initial_state,
     goal={
-        "Sector_1": Building.BARRACKS,
-        "Sector_2": Building.FACTORY,
-        "Sector_3": Building.DEPOT,
         "Unit_1": Unit.MARINE,
-        "Unit_2": Unit.MARINE,
-        "Unit_3": Unit.MARINE,
-        "SCV_location": "Sector_4",
     },
 )
 
-problem = problem_1
+problem = train_siege_tank_problem
 
 start = time.time()
 # A*
