@@ -25,7 +25,7 @@ class Unit(Enum):
 
 # minerals = {"mineral_field_a"}
 sectors = set(map(lambda x: f"Sector_{x}", range(1, 4)))
-mineral_fields = set(map(lambda x: f"Minerals_{x}", range(1, 6)))
+mineral_fields = set(map(lambda x: f"Minerals_{x}", range(1, 8)))
 unit_slots = set(map(lambda x: f"Unit_{x}", range(1, 4)))
 
 boolean = {True, False}
@@ -138,11 +138,11 @@ for i in range(1, len(sectors) + 1):
     for j in range(1, len(unit_slots) + 1):
         train_marine_actions.append(
             Strips(
-                f"Build_Siege_Tank_{j}_from_Factory_{i}",
+                f"Train_Siege_Tank_{j}_from_Factory_{i}",
                 {
                     f"Sector_{i}": Building.FACTORY,
                     "HasMinerals": True,
-                    f"Unit_{j}": "",
+                    f"Unit_{j}": Unit.NONE,
                 },
                 {
                     f"Unit_{j}": Unit.SIEGE_TANK,
@@ -164,7 +164,9 @@ starcraft_domain = STRIPS_domain(
         *move_scv_actions,
         *build_depot_actions,
         *build_barracks_actions,
+        *build_factory_actions,
         *train_marine_actions,
+        *train_siege_tank_actions,
         Strips(
             "Build_Barracks_1",
             {
@@ -228,21 +230,30 @@ train_marine_problem = Planning_problem(
     },
 )
 
+train_siege_tank_problem = Planning_problem(
+    prob_domain=starcraft_domain,
+    initial_state=initial_state,
+    goal={
+        "Unit_1": Unit.SIEGE_TANK,
+    },
+)
+
+
 problem_1 = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state=initial_state,
     goal={
         "Sector_1": Building.BARRACKS,
-        "Sector_3": Building.BARRACKS,
-        "Sector_2": Building.DEPOT,
-        "Sector_4": Building.DEPOT,
+        "Sector_2": Building.FACTORY,
+        "Sector_3": Building.DEPOT,
         "Unit_1": Unit.MARINE,
         "Unit_2": Unit.MARINE,
-        "SCV_location": "Sector_1",
+        "Unit_3": Unit.MARINE,
+        "SCV_location": "Sector_4",
     },
 )
 
-problem = train_marine_problem
+problem = problem_1
 
 start = time.time()
 # A*
