@@ -1,7 +1,12 @@
 from enum import Enum
+import time
 from searchMPP import SearcherMPP
 from stripsForwardPlanner import Forward_STRIPS
 from stripsProblem import Planning_problem, STRIPS_domain, Strips
+
+
+def goal_count_heuristic(state, goal):
+    return sum(1 for key, value in goal.items() if state.get(key) != value)
 
 
 class Building(Enum):
@@ -10,13 +15,20 @@ class Building(Enum):
     DEPOT = "Depot"
 
 
+class Unit(Enum):
+    NONE = ""
+    MARINE = "Marine"
+    WRAITH = "Wraith"
+    TANK = "Tank"
+
+
 # minerals = {"mineral_field_a"}
-sectors = set(map(lambda x: f"Sector_{x}", range(1, 3)))
+sectors = set(map(lambda x: f"Sector_{x}", range(1, 5)))
 boolean = {True, False}
 building = set(e.value for e in Building)
-units = {"", "Marine", "Wraith", "Tank"}
+units = set(e.value for e in Unit)
 mineralField = {"", "Minerals"}
-mineral_fields = set(map(lambda x: f"Minerals_{x}", range(1, 4)))
+mineral_fields = set(map(lambda x: f"Minerals_{x}", range(1, 8)))
 
 
 collect_minerals_actions = list(
@@ -95,7 +107,7 @@ train_marine_actions = list(
                 f"Unit_{x}": "",
             },
             {
-                f"Unit_{x}": "Marine",
+                f"Unit_{x}": Unit.MARINE,
                 "HasMinerals": False,
             },
         ),
@@ -136,22 +148,19 @@ starcraft_domain = STRIPS_domain(
 )
 
 initial_units_state = {
-    "Unit_1": "",
-    "Unit_2": "",
-    "Unit_3": "",
+    "Unit_1": Unit.NONE,
+    "Unit_2": Unit.NONE,
+    "Unit_3": Unit.NONE,
 }
 
-initial_sector_state = {
-    "Sector_1": Building.EMPTY,
-    "Sector_2": Building.EMPTY,
-}
+initial_sector_state = {f"Sector_{x}": Building.EMPTY for x in range(1, len(sectors) + 1)}
 
 initial_minerals_state = {
     "HasMinerals": False,
-    "Minerals_1": "Minerals",
-    "Minerals_2": "Minerals",
-    "Minerals_3": "Minerals",
 }
+for field in mineral_fields:
+    initial_minerals_state[field] = "Minerals"
+
 
 initial_state = {
     **initial_minerals_state,
@@ -163,20 +172,44 @@ initial_state = {
 build_barracks_problem = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state=initial_state,
-    goal={"Sector_1": Building.BARRACKS},
+    goal={
+        "Sector_1": Building.BARRACKS,
+        "Sector_4": Building.DEPOT,
+        "SCV_location": "Sector_2",
+    },
 )
 
 build_depot_problem = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state=initial_state,
-    goal={"Sector_1": Building.DEPOT},
+    goal={
+        "Sector_1": Building.DEPOT,
+        "SCV_location": "Sector_3",
+        "HasMinerals": True,
+    },
 )
 
 train_marine_problem = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state=initial_state,
-    goal={"Unit_1": "Marine"},
+    goal={"Unit_1": Unit.MARINE, "Unit_2": Unit.MARINE, "Sector_3": Building.BARRACKS},
 )
 
-s1 = SearcherMPP(Forward_STRIPS(train_marine_problem))  # A*
-s1.search()  # find another plan
+problem = build_depot_problem
+
+start = time.time()
+# A*
+s1 = SearcherMPP(Forward_STRIPS(problem))
+s1.search()
+
+end = time.time()
+print(f"Elapsed time: {end - start}")
+
+
+start = time.time()
+# A* z heurystyką
+s1 = SearcherMPP(Forward_STRIPS(problem, goal_count_heuristic))
+s1.search()
+
+end = time.time()
+print(f"Elapsed time with heuristic: {end - start:.4f} seconds")
