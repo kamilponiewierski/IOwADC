@@ -1,12 +1,27 @@
 from enum import Enum
 import time
+from searchGeneric import Searcher
 from searchMPP import SearcherMPP
 from stripsForwardPlanner import Forward_STRIPS
 from stripsProblem import Planning_problem, STRIPS_domain, Strips
 
 
 def goal_count_heuristic(state, goal):
-    return sum(1 for key, value in goal.items() if state.get(key) != value)
+    scv_location = state.get("SCV_location")
+    location_content = state.get(scv_location)
+    penalty_for_empty_mineral_field = (
+        -100 if scv_location.startswith("Minerals") and location_content == "" else 0
+    )
+    penalty_for_full_sector = (
+        -100
+        if scv_location.startswith("Sector") and location_content != Building.EMPTY
+        else 0
+    )
+    return (
+        sum(1 for key, value in goal.items() if state.get(key) != value)
+        + penalty_for_empty_mineral_field
+        + penalty_for_full_sector
+    )
 
 
 class Building(Enum):
@@ -23,10 +38,9 @@ class Unit(Enum):
     SIEGE_TANK = "Siege Tank"
 
 
-# minerals = {"mineral_field_a"}
-sectors = set(map(lambda x: f"Sector_{x}", range(1, 4)))
-mineral_fields = set(map(lambda x: f"Minerals_{x}", range(1, 10)))
-unit_slots = set(map(lambda x: f"Unit_{x}", range(1, 4)))
+sectors = set(map(lambda x: f"Sector_{x}", range(1, 5)))
+mineral_fields = set(map(lambda x: f"Minerals_{x}", range(1, 8)))
+unit_slots = set(map(lambda x: f"Unit_{x}", range(1, 3)))
 
 boolean = {True, False}
 building = set(e.value for e in Building)
@@ -76,7 +90,10 @@ build_depot_actions = list(
                 f"Sector_{x}": Building.EMPTY,
                 "HasMinerals": True,
             },
-            {f"Sector_{x}": Building.DEPOT, "HasMinerals": False},
+            {
+                f"Sector_{x}": Building.DEPOT,
+                "HasMinerals": False,
+            },
         ),
         range(1, len(sectors) + 1),
     )
@@ -95,7 +112,10 @@ for i in range(1, len(sectors) + 1):
                         "SCV_location": f"Sector_{i}",
                         f"Sector_{j}": Building.DEPOT,
                     },
-                    {"HasMinerals": False, f"Sector_{i}": Building.BARRACKS},
+                    {
+                        "HasMinerals": False,
+                        f"Sector_{i}": Building.BARRACKS,
+                    },
                 )
             )
 
@@ -112,7 +132,10 @@ for i in range(1, len(sectors) + 1):
                         "SCV_location": f"Sector_{i}",
                         f"Sector_{j}": Building.BARRACKS,
                     },
-                    {"HasMinerals": False, f"Sector_{i}": Building.FACTORY},
+                    {
+                        "HasMinerals": False,
+                        f"Sector_{i}": Building.FACTORY,
+                    },
                 )
             )
 train_marine_actions = []
@@ -224,6 +247,7 @@ train_marine_problem = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state=initial_state,
     goal={
+        "Sector_1": Building.DEPOT,
         "Unit_1": Unit.MARINE,
         "Unit_2": Unit.MARINE,
         "Sector_3": Building.BARRACKS,
@@ -237,8 +261,9 @@ train_siege_tank_problem = Planning_problem(
         "Sector_1": Building.DEPOT,
         "Sector_2": Building.BARRACKS,
         "Sector_3": Building.FACTORY,
+        "Sector_4": Building.FACTORY,
         "Unit_1": Unit.SIEGE_TANK,
-        "HasMinerals": True
+        "HasMinerals": True,
     },
 )
 
@@ -251,7 +276,7 @@ problem_1 = Planning_problem(
     },
 )
 
-problem = train_siege_tank_problem
+problem = train_marine_problem
 
 start = time.time()
 # A*
