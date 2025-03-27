@@ -79,7 +79,7 @@ starcraft_domain = STRIPS_domain(
     },
 )
 
-build_barracks = Planning_problem(
+build_barracks_problem = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state={
         "HasMinerals": False,
@@ -92,5 +92,18 @@ build_barracks = Planning_problem(
     goal={"Sector_1": "Barracks"},
 )
 
-s1 = SearcherMPP(Forward_STRIPS(build_barracks))  # A*
+build_depot_problem = Planning_problem(
+    prob_domain=starcraft_domain,
+    initial_state={
+        "HasMinerals": False,
+        "Minerals_1": "Minerals",
+        "Minerals_2": "Minerals",
+        "Sector_1": "",
+        "Sector_2": "",
+        "SCV_location": "Sector_1",
+    },
+    goal={"Sector_1": "Depot"},
+)
+
+s1 = SearcherMPP(Forward_STRIPS(build_depot_problem))  # A*
 s1.search()  # find another plan
