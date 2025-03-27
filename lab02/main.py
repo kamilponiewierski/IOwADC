@@ -53,6 +53,8 @@ build_depot_actions = list(map(
     range(1, len(sectors) + 1),
 ))
 
+units = {'', 'Marine', 'Wraith', 'Tank'}
+
 starcraft_domain = STRIPS_domain(
     feature_domain_dict={
         "Minerals_1": mineralField,
@@ -61,6 +63,9 @@ starcraft_domain = STRIPS_domain(
         "Sector_2": building,
         "HasMinerals": boolean,
         "SCV_location": locations,
+        "Unit_1": units,
+        "Unit_2": units,
+        "Unit_3": units,
     },
     actions={
         *collect_minerals_actions,
@@ -79,15 +84,30 @@ starcraft_domain = STRIPS_domain(
     },
 )
 
+initial_units_state = {
+    "Unit_1": '',
+    "Unit_2": '',
+    "Unit_3": '',
+}
+
+initial_sector_state = {
+    "Sector_1": "",
+    "Sector_2": "",
+}
+
+initial_minerals_state = {
+    "HasMinerals": False,
+    "Minerals_1": "Minerals",
+    "Minerals_2": "Minerals",
+}
+
 build_barracks_problem = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state={
-        "HasMinerals": False,
-        "Minerals_1": "Minerals",
-        "Minerals_2": "Minerals",
-        "Sector_1": "",
-        "Sector_2": "",
+        **initial_minerals_state,
+        **initial_sector_state,
         "SCV_location": "Sector_1",
+        **initial_units_state
     },
     goal={"Sector_1": "Barracks"},
 )
@@ -95,12 +115,10 @@ build_barracks_problem = Planning_problem(
 build_depot_problem = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state={
-        "HasMinerals": False,
-        "Minerals_1": "Minerals",
-        "Minerals_2": "Minerals",
-        "Sector_1": "",
-        "Sector_2": "",
+        **initial_minerals_state,
+        **initial_sector_state,
         "SCV_location": "Sector_1",
+        **initial_units_state
     },
     goal={"Sector_1": "Depot"},
 )
