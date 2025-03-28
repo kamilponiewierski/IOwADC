@@ -10,15 +10,15 @@ def goal_count_heuristic(state, goal):
     scv_location = state.get("SCV_location")
     location_content = state.get(scv_location)
     penalty_for_going_into_empty_mineral_field = (
-        5 if scv_location.startswith("Minerals") and location_content == "" else 0
+        2 if scv_location.startswith("Minerals") and location_content == "" else 0
     )
     penalty_for_going_into_full_sector = (
-        5
+        2
         if scv_location.startswith("Sector") and location_content != Building.EMPTY
         else 0
     )
     return (
-        sum(5 for key, value in goal.items() if state.get(key) != value)
+        sum(4 for key, value in goal.items() if state.get(key) != value)
         + penalty_for_going_into_empty_mineral_field
         + penalty_for_going_into_full_sector
     )
@@ -34,7 +34,7 @@ class Building(Enum):
 class Unit(Enum):
     NONE = ""
     MARINE = "Marine"
-    WRAITH = "Wraith"
+    VULTURE = "Vulture"
     SIEGE_TANK = "Siege Tank"
 
 
@@ -159,7 +159,7 @@ for i in range(1, len(sectors) + 1):
 train_siege_tank_actions = []
 for i in range(1, len(sectors) + 1):
     for j in range(1, len(unit_slots) + 1):
-        train_marine_actions.append(
+        train_siege_tank_actions.append(
             Strips(
                 f"Train_Siege_Tank_{j}_from_Factory_{i}",
                 {
@@ -169,6 +169,24 @@ for i in range(1, len(sectors) + 1):
                 },
                 {
                     f"Unit_{j}": Unit.SIEGE_TANK,
+                    "HasMinerals": False,
+                },
+            )
+        )
+
+train_wraith_actions = []
+for i in range(1, len(sectors) + 1):
+    for j in range(1, len(unit_slots) + 1):
+        train_wraith_actions.append(
+            Strips(
+                f"Train_Vulture_{j}_from_Factory_{i}",
+                {
+                    f"Sector_{i}": Building.FACTORY,
+                    "HasMinerals": True,
+                    f"Unit_{j}": Unit.NONE,
+                },
+                {
+                    f"Unit_{j}": Unit.VULTURE,
                     "HasMinerals": False,
                 },
             )
@@ -190,6 +208,7 @@ starcraft_domain = STRIPS_domain(
         *build_factory_actions,
         *train_marine_actions,
         *train_siege_tank_actions,
+        *train_wraith_actions,
         Strips(
             "Build_Barracks_1",
             {
@@ -267,16 +286,33 @@ train_siege_tank_problem = Planning_problem(
     },
 )
 
-
-problem_1 = Planning_problem(
+train_vulture_problem = Planning_problem(
     prob_domain=starcraft_domain,
     initial_state=initial_state,
     goal={
-        "Unit_1": Unit.MARINE,
+        "Sector_1": Building.DEPOT,
+        "Sector_2": Building.BARRACKS,
+        "Sector_3": Building.FACTORY,
+        "Sector_4": Building.DEPOT,
+        "Unit_1": Unit.VULTURE,
+        "HasMinerals": True,
     },
 )
 
-problem = train_siege_tank_problem
+train_vulture_and_tank_problem = Planning_problem(
+    prob_domain=starcraft_domain,
+    initial_state=initial_state,
+    goal={
+        "Sector_1": Building.DEPOT,
+        "Sector_2": Building.BARRACKS,
+        "Sector_3": Building.FACTORY,
+        "Unit_1": Unit.VULTURE,
+        "Unit_2": Unit.SIEGE_TANK,
+        "HasMinerals": True,
+    },
+)
+
+problem = train_vulture_and_tank_problem
 
 # start = time.time()
 # A*
