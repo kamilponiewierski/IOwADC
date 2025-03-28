@@ -9,18 +9,18 @@ from stripsProblem import Planning_problem, STRIPS_domain, Strips
 def goal_count_heuristic(state, goal):
     scv_location = state.get("SCV_location")
     location_content = state.get(scv_location)
-    penalty_for_empty_mineral_field = (
-        -100 if scv_location.startswith("Minerals") and location_content == "" else 0
+    penalty_for_going_into_empty_mineral_field = (
+        5 if scv_location.startswith("Minerals") and location_content == "" else 0
     )
-    penalty_for_full_sector = (
-        -100
+    penalty_for_going_into_full_sector = (
+        5
         if scv_location.startswith("Sector") and location_content != Building.EMPTY
         else 0
     )
     return (
-        sum(1 for key, value in goal.items() if state.get(key) != value)
-        + penalty_for_empty_mineral_field
-        + penalty_for_full_sector
+        sum(5 for key, value in goal.items() if state.get(key) != value)
+        + penalty_for_going_into_empty_mineral_field
+        + penalty_for_going_into_full_sector
     )
 
 
@@ -276,9 +276,9 @@ problem_1 = Planning_problem(
     },
 )
 
-problem = train_marine_problem
+problem = train_siege_tank_problem
 
-start = time.time()
+# start = time.time()
 # A*
 # s1 = SearcherMPP(Forward_STRIPS(problem))
 # s1.search()
