@@ -1,97 +1,71 @@
-import os
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
 import gymnasium as gym
+from stable_baselines3 import TD3
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.noise import OrnsteinUhlenbeckActionNoise
 import numpy as np
-import matplotlib.pyplot as plt
-from stable_baselines3 import PPO
-from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.evaluation import evaluate_policy
 
+# Hyperparameter setup
+GAMMA = 0.99  # Focus on long-term rewards
+TOTAL_TIMESTEPS = 500000  # Increased training time
+NOISE_SIGMA = 0.5  # More exploration
+LEARNING_RATE = 3e-4  # Slower learning for stability
 
-def train_and_evaluate(gamma: float, total_timesteps=150_000):
-    env = gym.make("MountainCarContinuous-v0")
-    env = Monitor(env)  # dodanie wrappera do zapisu statystyk
-
-    model = PPO("MlpPolicy", env, verbose=1, gamma=gamma)
-    model.learn(total_timesteps=total_timesteps)
-
-    episode_rewards = env.get_episode_rewards()
-    rewards, _ = evaluate_policy(model, env, n_eval_episodes=10, return_episode_rewards=True)
+def train_and_save():
+    env = make_vec_env("MountainCarContinuous-v0", n_envs=1)
+    
+    # Improved action noise for exploration
+    n_actions = env.action_space.shape[-1]
+    action_noise = OrnsteinUhlenbeckActionNoise(
+        mean=np.zeros(n_actions),
+        sigma=NOISE_SIGMA * np.ones(n_actions),
+        theta=0.15,
+        dt=1e-2
+    )
+    
+    # Enhanced TD3 configuration
+    model = TD3(
+        "MlpPolicy",
+        env,
+        gamma=GAMMA,
+        action_noise=action_noise,
+        learning_rate=LEARNING_RATE,
+        buffer_size=1_000_000,
+        batch_size=256,
+        policy_kwargs=dict(net_arch=[256, 256]),  # Larger network
+        learning_starts=5000,
+        train_freq=(1, "episode"),
+        gradient_steps=64,
+        target_policy_noise=0.2,
+        target_noise_clip=0.5,
+        verbose=1
+    )
+    
+    # Progressive training with periodic saving
+    for i in range(5):
+        model.learn(total_timesteps=TOTAL_TIMESTEPS//5)
+        model.save(f"td3_mountaincar_v2_{i+1}")
+        print(f"Checkpoint {i+1}/5 saved")
+    
     env.close()
-    return model, rewards, episode_rewards
 
-
-def show_final_run(model, attempts=5):
-    best_reward = -float("inf")
-    best_position = -float("inf")
-
-    for attempt in range(attempts):
-        env = gym.make("MountainCarContinuous-v0", render_mode="human")
+def evaluate_model(model_path, num_episodes=50):
+    model = TD3.load(model_path)
+    env = gym.make("MountainCarContinuous-v0", render_mode='human')
+    
+    successes = 0
+    for ep in range(num_episodes):
         obs, _ = env.reset()
         done = False
-        total_reward = 0
-
         while not done:
             action, _ = model.predict(obs, deterministic=True)
-            obs, reward, terminated, truncated, _ = env.step(action)
-            total_reward += reward
+            obs, _, terminated, truncated, _ = env.step(action)
+            if terminated:
+                successes += 1
             done = terminated or truncated
+    
+    env.close()
+    print(f"Success rate: {successes/num_episodes:.2%}")
 
-        print(f"Attempt {attempt + 1}: Total reward = {total_reward:.2f}, Final position = {obs[0]:.4f}")
-
-        if total_reward > best_reward:
-            best_reward = total_reward
-            best_position = obs[0]
-
-        env.close()
-
-    print(f"\nBest run: Total reward = {best_reward:.2f}, Final position = {best_position:.4f}")
-
-
-def main():
-    gammas = [0.8, 0.9, 0.99]
-    all_rewards = {}
-    all_learning_curves = {}
-    models = {}
-
-    for gamma in gammas:
-        print(f"Training with gamma={gamma}...")
-        model, eval_rewards, episode_rewards = train_and_evaluate(gamma)
-        all_rewards[gamma] = eval_rewards
-        all_learning_curves[gamma] = episode_rewards
-        models[gamma] = model
-        model.save(f"ppo_mountaincar_gamma_{gamma}")  # Zapisz model do pliku
-        print(f"Mean reward: {np.mean(eval_rewards):.2f}, Std: {np.std(eval_rewards):.2f}\n")
-
-    # Plotting - porównanie współczynników dyskontowych (średnie rewardy)
-    plt.figure(figsize=(10, 6))
-    for gamma, rewards in all_rewards.items():
-        plt.plot(rewards, label=f"gamma={gamma}")
-    plt.xlabel("Episode")
-    plt.ylabel("Total Reward")
-    plt.title("Porównanie współczynników dyskontowych - Ewaluacja")
-    plt.legend()
-    plt.grid()
-    plt.savefig("learning_curve_comparison_eval.png")
-    plt.show()
-
-    # Plotting - learning curves z treningu
-    plt.figure(figsize=(10, 6))
-    for gamma, episode_rewards in all_learning_curves.items():
-        plt.plot(episode_rewards, label=f"gamma={gamma}")
-    plt.xlabel("Episode")
-    plt.ylabel("Episode Reward")
-    plt.title("Krzywe uczenia podczas treningu")
-    plt.legend()
-    plt.grid()
-    plt.savefig("learning_curve_training.png")
-    plt.show()
-
-    # Pokaż finałową jazdę najlepszego modelu (gamma=0.99)
-    print("\nPokazuję finalny przejazd dla gamma=0.99...")
-    show_final_run(models[0.99])
-
-
-if __name__ == "__main__":
-    main()
+# Execute training and evaluation
+train_and_save()
+evaluate_model("td3_mountaincar_v2_5")  # Evaluate final checkpoint
