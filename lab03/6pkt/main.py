@@ -10,7 +10,7 @@ TOTAL_TIMESTEPS = 500000  # Increased training time
 NOISE_SIGMA = 0.5  # More exploration
 LEARNING_RATE = 3e-4  # Slower learning for stability
 
-def train_and_save():
+def train_and_save(GAMMA):
     env = make_vec_env("MountainCarContinuous-v0", n_envs=1)
     
     # Improved action noise for exploration
@@ -43,7 +43,7 @@ def train_and_save():
     # Progressive training with periodic saving
     for i in range(5):
         model.learn(total_timesteps=TOTAL_TIMESTEPS//5)
-        model.save(f"td3_mountaincar_v2_{i+1}")
+        model.save(f"td3_mountaincar_v2_gamma_{GAMMA}_{i+1}")
         print(f"Checkpoint {i+1}/5 saved")
     
     env.close()
@@ -67,5 +67,6 @@ def evaluate_model(model_path, num_episodes=50):
     print(f"Success rate: {successes/num_episodes:.2%}")
 
 # Execute training and evaluation
-train_and_save()
-evaluate_model("td3_mountaincar_v2_5")  # Evaluate final checkpoint
+for gamma in [0.99, 0.95, 0.90]:
+    # train_and_save(gamma)
+    evaluate_model("td3_mountaincar_v2_gamma_0.99_5")  # Evaluate final checkpoint
