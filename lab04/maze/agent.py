@@ -3,24 +3,22 @@ import random
 import matplotlib.pyplot as plt
 
 class QLearningAgent:
-    def __init__(self, env, alpha=0.1, gamma=0.9, epsilon=1.0):
+    def __init__(self, env, alpha=0.1, gamma=0.99, epsilon=1.0):
         self.env = env
-        self.alpha = alpha          # współczynnik uczenia
-        self.gamma = gamma          # współczynnik dyskontowy
-        self.epsilon = epsilon      # współczynnik eksploracji
+        self.alpha = alpha
+        self.gamma = gamma
+        self.epsilon = epsilon
         self.q_table = np.zeros((env.observation_space.n, env.action_space.n))
         self.episode_rewards = []
         self.best_path = []
 
-    def train(self, episodes=3000, max_steps_per_episode=500):
+    def train(self, episodes=3000, max_steps_per_episode=300):
         for episode in range(episodes):
             state, _ = self.env.reset()
             done = False
             total_reward = 0
-            steps = 0
 
-            while not done and steps < max_steps_per_episode:
-                # Eksploracja vs Eksploatacja
+            for _ in range(max_steps_per_episode):
                 if random.random() < self.epsilon:
                     action = self.env.action_space.sample()
                 else:
@@ -28,43 +26,44 @@ class QLearningAgent:
 
                 next_state, reward, done = self.env.step(action)
 
-                # Aktualizacja Q-tabeli
                 old_value = self.q_table[state, action]
                 next_max = np.max(self.q_table[next_state])
                 self.q_table[state, action] = old_value + self.alpha * (reward + self.gamma * next_max - old_value)
 
                 state = next_state
                 total_reward += reward
-                steps += 1
+
+                if done:
+                    break
 
             self.episode_rewards.append(total_reward)
-
-            # 🔁 Dynamiczne zmniejszanie epsilonu
             self.epsilon = max(0.05, self.epsilon * 0.995)
 
-            # Co 100 epizodów logujemy postęp
             if episode % 100 == 0:
                 print(f"Epizod {episode}, Reward: {total_reward:.2f}, Epsilon: {self.epsilon:.4f}")
 
+        np.save("q_table.npy", self.q_table)
+
     def plot_learning_curve(self):
         plt.plot(self.episode_rewards)
-        plt.xlabel("Episode")
-        plt.ylabel("Total Reward")
-        plt.title("Learning Curve")
-        plt.grid(True)
+        plt.xlabel("Epizod")
+        plt.ylabel("Całkowita nagroda")
+        plt.title("Krzywa uczenia")
+        plt.grid()
         plt.show()
 
-    def find_best_path(self, max_steps=1000):
+    def find_best_path(self, max_steps=300):
         state, _ = self.env.reset()
-        done = False
         path = [self.env.agent_pos[:]]
-        steps = 0
-
-        while not done and steps < max_steps:
+        for _ in range(max_steps):
             action = np.argmax(self.q_table[state])
             state, _, done = self.env.step(action)
             path.append(self.env.agent_pos[:])
-            steps += 1
+            if done:
+                break
 
         self.best_path = path
+        print("🔁 Długość ścieżki:", len(path))
+        print("📍 Pozycja końcowa agenta:", self.env.agent_pos)
+        print("🎯 Czy osiągnięto cel:", self.env.agent_pos == self.env.goal_pos)
         return path

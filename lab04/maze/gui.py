@@ -1,75 +1,76 @@
 import pygame
 import sys
 import numpy as np
+import time
+
 from maze_env import MazeEnv
 from agent import QLearningAgent
 
-CELL_SIZE = 30
+CELL_SIZE = 35
 MARGIN = 2
-FPS = 5
+FPS = 6  # tempo animacji
 
-# Inicjalizacja Pygame
 pygame.init()
-try:
-    AGENT_IMG = pygame.transform.scale(pygame.image.load("images/agent.png"), (CELL_SIZE, CELL_SIZE))
-    GOAL_IMG = pygame.transform.scale(pygame.image.load("images/goal.webp"), (CELL_SIZE, CELL_SIZE))
-    WALL_IMG = pygame.transform.scale(pygame.image.load("images/brick.jpg"), (CELL_SIZE, CELL_SIZE))
-    BONUS_IMG = pygame.transform.scale(pygame.image.load("images/bonus.webp"), (CELL_SIZE, CELL_SIZE))
-    PENALTY_IMG = pygame.transform.scale(pygame.image.load("images/zombie.webp"), (CELL_SIZE, CELL_SIZE))
-    GRASS_IMG = pygame.transform.scale(pygame.image.load("images/grass.jpg"), (CELL_SIZE, CELL_SIZE))
-    START_IMG = pygame.transform.scale(pygame.image.load("images/start.jpg"), (CELL_SIZE, CELL_SIZE))
-    BONUS_COLLECTED_IMG = pygame.transform.scale(pygame.image.load("images/bonus_collected.png"), (CELL_SIZE, CELL_SIZE))
-except Exception as e:
-    print("Błąd wczytywania obrazków:", e)
-    sys.exit()
 
-def draw_grid(screen, maze, agent_pos, goal_pos, bonus_points, penalty_points, collected_bonus_points):
-    for y in range(maze.shape[0]):
-        for x in range(maze.shape[1]):
-            pos = [y, x]
+# Wczytaj obrazy
+def load_img(name):
+    return pygame.transform.scale(pygame.image.load(f"images/{name}"), (CELL_SIZE, CELL_SIZE))
+
+MARIO_FRAMES = [
+    load_img("mario_1.png"),
+    load_img("mario_2.png"),
+    load_img("mario_3.png"),
+]
+
+START_IMG = load_img("start1.jpg")
+GOAL_IMG = load_img("goal1.gif")
+WALL_IMG = load_img("brick1.jpg")
+GRASS_IMG = load_img("floor.avif")
+ZOMBIE_IMG = load_img("mob.jpg")
+
+def draw_grid(screen, env, agent_pos, frame_index):
+    for y in range(env.size):
+        for x in range(env.size):
             rect = pygame.Rect(
                 x * (CELL_SIZE + MARGIN),
                 y * (CELL_SIZE + MARGIN),
                 CELL_SIZE,
                 CELL_SIZE
             )
+
             screen.blit(GRASS_IMG, rect)
-            if pos == [0, 0]:
+
+            if [y, x] == [0, 0]:
                 screen.blit(START_IMG, rect)
-            elif pos == agent_pos:
-                screen.blit(AGENT_IMG, rect)
-            elif pos == goal_pos:
+            elif [y, x] == env.goal_pos:
                 screen.blit(GOAL_IMG, rect)
-            elif pos in bonus_points and pos not in collected_bonus_points:
-                screen.blit(BONUS_IMG, rect)
-            elif pos in collected_bonus_points:
-                screen.blit(BONUS_COLLECTED_IMG, rect)
-            elif pos in penalty_points:
-                screen.blit(PENALTY_IMG, rect)
-            elif maze[y, x] == 1:
+            elif [y, x] == agent_pos:
+                screen.blit(MARIO_FRAMES[frame_index], rect)
+            elif [y, x] in env.penalty_points:
+                screen.blit(ZOMBIE_IMG, rect)
+            elif env.maze[y, x] == 1:
                 screen.blit(WALL_IMG, rect)
 
 def main():
-    pygame.init()
-    env = MazeEnv()
+    env = MazeEnv(size=20)
     agent = QLearningAgent(env)
 
-    # Wczytaj wytrenowaną Q-tabelę
     try:
         agent.q_table = np.load("q_table.npy")
     except FileNotFoundError:
-        print("Nie znaleziono pliku q_table.npy. Uruchom najpierw train.py.")
+        print("❌ Brak pliku q_table.npy – uruchom train.py.")
         sys.exit()
 
-    best_path = agent.find_best_path()
-    collected_bonus_points = set()
+    path = agent.find_best_path()
 
     screen_size = env.size * (CELL_SIZE + MARGIN)
     screen = pygame.display.set_mode((screen_size, screen_size))
-    pygame.display.set_caption("Najlepsza ścieżka agenta")
+    pygame.display.set_caption("🍄 Mario Maze Agent")
     clock = pygame.time.Clock()
 
-    step_index = 0
+    step = 0
+    frame_index = 0
+    frame_timer = 0
 
     while True:
         for event in pygame.event.get():
@@ -77,22 +78,21 @@ def main():
                 pygame.quit()
                 sys.exit()
 
-        if step_index < len(best_path):
-            state = best_path[step_index]
-            y, x = divmod(state, env.size)
-            env.agent_pos = [y, x]
-
-            if env.agent_pos in env.bonus_points:
-                collected_bonus_points.add(tuple(env.agent_pos))
-
-            step_index += 1
+        if step < len(path):
+            agent_pos = path[step]
+            step += 1
         else:
-            pygame.time.wait(2000)
+            time.sleep(2)
             pygame.quit()
             sys.exit()
 
+        frame_timer += 1
+        if frame_timer >= 5:
+            frame_index = (frame_index + 1) % len(MARIO_FRAMES)
+            frame_timer = 0
+
         screen.fill((0, 0, 0))
-        draw_grid(screen, env.maze, env.agent_pos, env.goal_pos, env.bonus_points, env.penalty_points, collected_bonus_points)
+        draw_grid(screen, env, agent_pos, frame_index)
         pygame.display.flip()
         clock.tick(FPS)
 
