@@ -33,7 +33,7 @@ def train_and_save(hyperparameters: Hyperparameters):
             turbulence_power=1.5,
         )
 
-    env = make_vec_env(get_gym)
+    env = gym.make("LunarLanderContinuous-v3")
 
     # Improved action noise for exploration
     n_actions = env.action_space.shape[-1]

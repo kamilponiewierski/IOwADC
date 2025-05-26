@@ -1,5 +1,5 @@
 import gymnasium as gym
-from stable_baselines3 import TD3
+from stable_baselines3 import PPO, TD3
 import time
 
 
@@ -15,7 +15,7 @@ def evaluate_and_render_high_rewards(
         num_episodes: Total episodes to evaluate
         max_renders: Maximum number of episodes to render (to avoid too many windows)
     """
-    model = TD3.load(model_path)
+    model = PPO.load(model_path, device="cpu")
 
     # Environment for evaluation (no rendering initially)
     env = gym.make(
@@ -124,7 +124,7 @@ def render_live_evaluation(model_path, reward_threshold=200, num_episodes=20):
     Alternative: Render episodes live and continue only if reward is high
     This is more efficient but you might miss some high-reward episodes
     """
-    model = TD3.load(model_path)
+    model = PPO.load(model_path)
 
     env = gym.make(
         "LunarLander-v3",
@@ -170,21 +170,3 @@ def render_live_evaluation(model_path, reward_threshold=200, num_episodes=20):
     print(
         f"\nCompleted evaluation: {high_reward_count}/{num_episodes} high-reward episodes"
     )
-
-
-# Example usage:
-if __name__ == "__main__":
-    # Replace with your actual model path
-    model_path = "lab05/models/td3_lunarlander_v3_your_hyperparams_5"
-
-    # Method 1: Evaluate all episodes, render only high-reward ones
-    evaluate_and_render_high_rewards(
-        model_path=model_path, reward_threshold=200, num_episodes=50, max_renders=5
-    )
-
-    # Method 2: Live rendering (uncomment to use)
-    # render_live_evaluation(
-    #     model_path=model_path,
-    #     reward_threshold=200,
-    #     num_episodes=20
-    # )
