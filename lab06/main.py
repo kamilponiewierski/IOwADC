@@ -39,9 +39,12 @@ agents = env.possible_agents
 agent_models = {agent: SimplePPOAgent(env.observation_space(agent).shape, env.action_space(agent).n) for agent in agents}
 reward_history = {agent: [] for agent in agents}
 # Dodaj optymalizatory i prosty krok uczenia (policy gradient, nie pełne PPO)
-optimizers = {agent: optim.Adam(agent_models[agent].parameters(), lr=1e-3) for agent in agents}
+optimizers = {agent: optim.Adam(agent_models[agent].parameters(), lr=1e-4) for agent in agents}
 
-for episode in range(100):
+BATCH_SIZE = 32  # Increased batch size for more stable updates
+batch_trajectories = {agent: {'obs': [], 'actions': [], 'rewards': []} for agent in agents}
+
+for episode in range(300):
     obs = env.reset()
     # PettingZoo parallel_env.reset() may return (obs, info) tuple
     if isinstance(obs, tuple) and len(obs) == 2:
@@ -54,9 +57,9 @@ for episode in range(100):
         actions = {}
         for agent in agents:
             if not done[agent]:
-                action = select_action(agent_models[agent], obs[agent])
+                action = select_action(agent_models[agent], obs[agent] / 255.0)
                 actions[agent] = action
-                trajectories[agent]['obs'].append(obs[agent])
+                trajectories[agent]['obs'].append(obs[agent] / 255.0)
                 trajectories[agent]['actions'].append(action)
             else:
                 actions[agent] = 0  # no-op
@@ -68,33 +71,36 @@ for episode in range(100):
             total_rewards[agent] += rewards[agent]
             done[agent] = terminations[agent] or truncations[agent]
         obs = next_obs
-    # Policy gradient update (REINFORCE z baseline)
     for agent in agents:
-        R = 0
-        returns = []
-        for r in reversed(trajectories[agent]['rewards']):
-            R = r + 0.99 * R
-            returns.insert(0, R)
-        returns = torch.tensor(returns, dtype=torch.float32)
-        obs_batch = torch.tensor(np.array(trajectories[agent]['obs']), dtype=torch.float32)
-        action_batch = torch.tensor(trajectories[agent]['actions'], dtype=torch.int64)
-        logits, values = agent_models[agent](obs_batch)
-        log_probs = torch.log_softmax(logits, dim=1)
-        chosen_log_probs = log_probs[range(len(action_batch)), action_batch]
-        # Advantage = returns - value
-        values = values.squeeze(-1)
-        advantage = returns - values.detach()
-        # Policy loss (z baseline)
-        policy_loss = -(chosen_log_probs * advantage).mean()
-        # Value loss
-        value_loss = 0.5 * (returns - values).pow(2).mean()
-        loss = policy_loss + value_loss
-        optimizers[agent].zero_grad()
-        loss.backward()
-        optimizers[agent].step()
-    for agent in agents:
+        batch_trajectories[agent]['obs'].extend(trajectories[agent]['obs'])
+        batch_trajectories[agent]['actions'].extend(trajectories[agent]['actions'])
+        batch_trajectories[agent]['rewards'].extend(trajectories[agent]['rewards'])
         reward_history[agent].append(total_rewards[agent])
     print(f"Episode {episode+1}: {[f'{agent}: {total_rewards[agent]}' for agent in agents]}")
+    if (episode + 1) % BATCH_SIZE == 0:
+        for agent in agents:
+            R = 0
+            returns = []
+            for r in reversed(batch_trajectories[agent]['rewards']):
+                R = r + 0.99 * R
+                returns.insert(0, R)
+            returns = torch.tensor(returns, dtype=torch.float32)
+            obs_batch = torch.tensor(np.array(batch_trajectories[agent]['obs']), dtype=torch.float32)
+            action_batch = torch.tensor(batch_trajectories[agent]['actions'], dtype=torch.int64)
+            logits, values = agent_models[agent](obs_batch)
+            probs = torch.softmax(logits, dim=1)
+            log_probs = torch.log_softmax(logits, dim=1)
+            chosen_log_probs = log_probs[range(len(action_batch)), action_batch]
+            values = values.squeeze(-1)
+            advantage = returns - values.detach()
+            policy_loss = -(chosen_log_probs * advantage).mean()
+            value_loss = 0.5 * (returns - values).pow(2).mean()
+            entropy = -(probs * log_probs).sum(dim=1).mean()
+            loss = policy_loss + value_loss - 0.01 * entropy  # Reduced entropy bonus
+            optimizers[agent].zero_grad()
+            loss.backward()
+            optimizers[agent].step()
+            batch_trajectories[agent] = {'obs': [], 'actions': [], 'rewards': []}
 
 # Wykres sumy nagród dla każdego agenta
 for agent in agents:
