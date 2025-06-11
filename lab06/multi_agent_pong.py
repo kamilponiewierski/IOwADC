@@ -26,7 +26,7 @@ class Args:
     wandb_project_name: str = "cleanRL"
     wandb_entity: str = None
     capture_video: bool = True
-    total_timesteps: int = 50000
+    total_timesteps: int = 150000
     learning_rate: float = 2.5e-4
     num_envs: int = 1
     num_steps: int = 128
@@ -170,5 +170,3 @@ if __name__ == "__main__":
     plt.close()
 
     env.close()
-
-    
