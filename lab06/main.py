@@ -58,8 +58,15 @@ def main():
     # Storage for learning curves
     episode_rewards = {aid: [] for aid in agent_ids}
     # --- Training ---
-    total_episodes = 300
+    total_episodes = 5000  # Increased for better learning
     gamma = 0.99
+    batch_size = 8  # Number of episodes per update
+    reward_norm_eps = 1e-8
+    reward_running_mean = {aid: 0.0 for aid in agent_ids}
+    reward_running_var = {aid: 1.0 for aid in agent_ids}
+    reward_count = {aid: 0 for aid in agent_ids}
+    entropy_coef = 0.05  # Encourage exploration
+    batch_buffer = {aid: [] for aid in agent_ids}
     for ep in range(total_episodes):
         obs = env.reset(seed=ep)
         done = {aid: False for aid in agent_ids}
@@ -67,14 +74,17 @@ def main():
         log_probs = {aid: [] for aid in agent_ids}
         values = {aid: [] for aid in agent_ids}
         rewards_list = {aid: [] for aid in agent_ids}
+        entropies = {aid: [] for aid in agent_ids}
         actions = {aid: [] for aid in agent_ids}
         # --- Collect episode ---
         for agent in env.agent_iter():
             ob, reward, termination, truncation, info = env.last()
             d = termination or truncation
+            # Reward clipping
+            reward = np.clip(reward, -1, 1)
             if not d:
                 x = obs_to_tensor(ob, device)
-                action, logprob, _, value = policies[agent].act(x)
+                action, logprob, entropy, value = policies[agent].act(x)
                 action = action.item()
             else:
                 action = None
@@ -83,32 +93,58 @@ def main():
                 log_probs[agent].append(logprob)
                 values[agent].append(value)
                 actions[agent].append(action)
-            rewards[agent] += reward
-            rewards_list[agent].append(reward)
+                entropies[agent].append(entropy)
+            # --- Reward normalization ---
+            reward_count[agent] += 1
+            delta = reward - reward_running_mean[agent]
+            reward_running_mean[agent] += delta / reward_count[agent]
+            reward_running_var[agent] += delta * (reward - reward_running_mean[agent])
+            std = np.sqrt(reward_running_var[agent] / max(1, reward_count[agent])) + reward_norm_eps
+            normed_reward = reward / std
+            rewards[agent] += normed_reward
+            rewards_list[agent].append(normed_reward)
             done[agent] = d
-        # --- Compute returns and update ---
+        # Store episode in batch buffer
         for aid in agent_ids:
-            # Fix: ensure rewards_list and values are the same length
-            if len(rewards_list[aid]) > len(values[aid]):
-                rewards_list[aid] = rewards_list[aid][:len(values[aid])]
-            elif len(values[aid]) > len(rewards_list[aid]):
-                values[aid] = values[aid][:len(rewards_list[aid])]
-            R = 0
-            returns = []
-            for r in reversed(rewards_list[aid]):
-                R = r + gamma * R
-                returns.insert(0, R)
-            returns = torch.tensor(returns, dtype=torch.float32, device=device)
-            if values[aid]:
-                values_t = torch.cat(values[aid]).squeeze(-1)
-                log_probs_t = torch.cat(log_probs[aid])
-                advantage = returns - values_t.detach()
-                policy_loss = -(log_probs_t * advantage).mean()
-                value_loss = (returns - values_t).pow(2).mean()
-                loss = policy_loss + 0.5 * value_loss
-                optimizers[aid].zero_grad()
-                loss.backward()
-                optimizers[aid].step()
+            batch_buffer[aid].append((log_probs[aid], values[aid], rewards_list[aid], entropies[aid]))
+        # --- Batch update ---
+        if (ep + 1) % batch_size == 0:
+            for aid in agent_ids:
+                all_log_probs = []
+                all_values = []
+                all_rewards = []
+                all_entropies = []
+                for b in batch_buffer[aid]:
+                    lp, v, r, e = b
+                    # Fix: ensure rewards and values are the same length
+                    min_len = min(len(r), len(v))
+                    r = r[:min_len]
+                    v = v[:min_len]
+                    lp = lp[:min_len]
+                    e = e[:min_len]
+                    all_log_probs.extend(lp)
+                    all_values.extend(v)
+                    all_rewards.extend(r)
+                    all_entropies.extend(e)
+                R = 0
+                returns = []
+                for r in reversed(all_rewards):
+                    R = r + gamma * R
+                    returns.insert(0, R)
+                returns = torch.tensor(returns, dtype=torch.float32, device=device)
+                if all_values:
+                    values_t = torch.cat(all_values).squeeze(-1)
+                    log_probs_t = torch.cat(all_log_probs)
+                    entropies_t = torch.cat(all_entropies)
+                    advantage = returns - values_t.detach()
+                    policy_loss = -(log_probs_t * advantage).mean()
+                    value_loss = (returns - values_t).pow(2).mean()
+                    entropy_loss = -entropy_coef * entropies_t.mean()
+                    loss = policy_loss + 0.5 * value_loss + entropy_loss
+                    optimizers[aid].zero_grad()
+                    loss.backward()
+                    optimizers[aid].step()
+            batch_buffer = {aid: [] for aid in agent_ids}
         for aid in agent_ids:
             episode_rewards[aid].append(rewards[aid])
         if (ep+1) % 10 == 0:
